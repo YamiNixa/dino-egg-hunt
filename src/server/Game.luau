@@ -187,24 +187,26 @@ local function spawnEggs(parent)
 	for i, spot in ipairs(Config.EGG_SPOTS) do
 		Map.buildNest(parent, spot)
 		-- A DINOSAUR egg, not a chicken egg: big (4.6 wide, 5.4 tall,
-		-- taller than a player's torso), elongated, cream with dark
-		-- speckles stuck on the shell so it reads as a dino egg.
+		-- taller than a player's torso), elongated, PALE MINT-GREEN
+		-- with big dark speckles, so it can never read as a white
+		-- chicken egg, even from 30 studs away.
 		local egg = Instance.new("Part")
 		egg.Name = "Egg" .. i
 		egg.Size = Vector3.new(4.6, 5.4, 4.6)
 		egg.Position = spot + Vector3.new(0, 2.7, 0)
-		egg.Color = Color3.fromRGB(255, 246, 210)
+		egg.Color = Color3.fromRGB(200, 235, 180)
 		egg.Material = Enum.Material.SmoothPlastic
 		egg.Shape = Enum.PartType.Ball
 		egg.Anchored = true
 		egg.CanCollide = false
 		egg:SetAttribute("EggIndex", i)
 		egg.Parent = parent
-		-- Speckles: small flat spots on the shell, at fixed angles so
-		-- every egg looks the same in every server. They sit just
-		-- inside the shell surface (0.92 of the radius) so they read
-		-- as part of the egg, not floating beside it.
-		local speckleCols = { Color3.fromRGB(58, 92, 44), Color3.fromRGB(122, 82, 52) }
+		-- Speckles: BIG raised spots on the shell, at fixed angles so
+		-- every egg looks the same in every server. They sit PROUD of
+		-- the shell surface (1.0 of the radius) in near-black green
+		-- and brown, so they still read at 30+ studs — the old 0.9-stud
+		-- speckles tucked inside the shell were invisible past 10.
+		local speckleCols = { Color3.fromRGB(30, 50, 25), Color3.fromRGB(60, 40, 20) }
 		local speckleDirs = {
 			{ 0, 30 }, { 90, 50 }, { 180, 40 }, { 270, 55 },
 			{ 45, 80 }, { 135, 75 }, { 225, 85 }, { 315, 70 }, { 60, 15 },
@@ -217,8 +219,8 @@ local function spawnEggs(parent)
 			local uz = math.sin(phi) * math.sin(theta)
 			local sp = Instance.new("Part")
 			sp.Name = "Speckle"
-			sp.Size = Vector3.new(0.9, 0.7, 0.9)
-			sp.Position = egg.Position + Vector3.new(ux * 2.3 * 0.92, uy * 2.7 * 0.92, uz * 2.3 * 0.92)
+			sp.Size = Vector3.new(2.2, 1.8, 2.2)
+			sp.Position = egg.Position + Vector3.new(ux * 2.3 * 1.0, uy * 2.7 * 1.0, uz * 2.3 * 1.0)
 			sp.Color = speckleCols[(s % 2) + 1]
 			sp.Material = Enum.Material.SmoothPlastic
 			sp.Shape = Enum.PartType.Ball
@@ -261,11 +263,17 @@ local function spawnEggs(parent)
 		local iconText = Instance.new("TextLabel")
 		iconText.Name = "Icon"
 		iconText.Size = UDim2.new(1, 0, 1, 0)
-		iconText.BackgroundTransparency = 1
+		-- Solid gold circle behind the egg, so the icon pops against
+		-- the sky instead of washing out like the old transparent one.
+		iconText.BackgroundTransparency = 0
+		iconText.BackgroundColor3 = Color3.fromRGB(255, 210, 90)
 		iconText.Text = "🥚"
 		iconText.TextScaled = true
 		iconText.Font = Enum.Font.GothamBold
 		iconText.Parent = icon
+		local iconCorner = Instance.new("UICorner")
+		iconCorner.CornerRadius = UDim.new(0.5, 0)
+		iconCorner.Parent = iconText
 	end
 end
 
@@ -287,6 +295,21 @@ local function spawnCoins(parent)
 	end
 end
 
+-- One place that collects an egg, so the touch hook and the proximity
+-- check below can never drift apart. Returns true if it collected.
+local function collectEgg(player, index)
+	local state = states[player]
+	if not state or state.finished or not roundActive then return false end
+	if state.eggs[index] then return false end
+	state.eggs[index] = true
+	state.eggsFound += 1
+	send(player, "egg", { found = state.eggsFound, total = Config.EGG_TOTAL })
+	if state.eggsFound >= Config.EGG_TOTAL then
+		endRoundFor(player, true)
+	end
+	return true
+end
+
 local function hookTouch(part, kind, index)
 	part.Touched:Connect(function(hit)
 		local player = Players:GetPlayerFromCharacter(hit.Parent)
@@ -294,13 +317,7 @@ local function hookTouch(part, kind, index)
 		local state = states[player]
 		if not state or state.finished or not roundActive then return end
 		if kind == "egg" then
-			if state.eggs[index] then return end
-			state.eggs[index] = true
-			state.eggsFound += 1
-			send(player, "egg", { found = state.eggsFound, total = Config.EGG_TOTAL })
-			if state.eggsFound >= Config.EGG_TOTAL then
-				endRoundFor(player, true)
-			end
+			collectEgg(player, index)
 		else
 			if state.coinsGot[index] then return end
 			state.coinsGot[index] = true
@@ -411,10 +428,44 @@ function Game.start()
 
 	roundActive = true
 
+	local tickAccum = 0
 	RunService.Heartbeat:Connect(function(dt)
 		local now = os.clock()
 		local players = Players:GetPlayers()
-		Raptors.update(dt, now, players, onCatch)
+		-- Grace: no raptor engages a player in their first 10 seconds,
+		-- so the player sees the pack patrolling with its red markers
+		-- before anything can catch them from behind.
+		local grace = {}
+		for _, p in ipairs(players) do
+			local st = states[p]
+			if st and now - st.startedAt < Config.RAPTOR_GRACE_SECONDS then
+				grace[p] = true
+			end
+		end
+		Raptors.update(dt, now, players, onCatch, grace)
+		-- Proximity egg pickup + raptor radar, every ~0.2s. Touch alone
+		-- was not enough: players walk NEAR eggs (2-3 studs) and the
+		-- egg never fires, so the hunt could not be completed.
+		tickAccum += dt
+		if tickAccum >= 0.2 then
+			tickAccum = 0
+			for _, player in ipairs(players) do
+				local state = states[player]
+				if state and not state.finished and roundActive then
+					local char = player.Character
+					local root = char and char:FindFirstChild("HumanoidRootPart")
+					if root then
+						for i, egg in ipairs(eggs) do
+							if not state.eggs[i] and (root.Position - egg.Position).Magnitude <= 7 then
+								collectEgg(player, i)
+							end
+						end
+						local radar = Raptors.nearestRadar(player)
+						if radar then send(player, "radar", radar) end
+					end
+				end
+			end
+		end
 		for _, player in ipairs(players) do
 			local state = states[player]
 			if state and not state.finished and roundActive then

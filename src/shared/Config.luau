@@ -48,6 +48,10 @@ Config.RAPTOR_CHASE_SPEED = 16
 Config.RAPTOR_SPOT_RANGE = 42
 Config.RAPTOR_CATCH_RANGE = 4
 Config.RAPTOR_PATROL_RADIUS = 26
+-- Grace: raptors do not engage a player in their first 10 seconds of a
+-- round, so the player sees them patrolling with their red markers
+-- before anything can catch them from behind.
+Config.RAPTOR_GRACE_SECONDS = 10
 
 -- The player: three hearts, walk 16, sprint 24.
 Config.MAX_HEARTS = 3

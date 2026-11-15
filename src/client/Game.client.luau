@@ -184,6 +184,21 @@ local torchLabel = makeLabel(gui, "Torch", "🔥 Torch ready [F]", 18,
 torchLabel.Size = UDim2.new(0, 300, 0, 26)
 torchLabel.Visible = false
 
+-- The raptor radar: nearest raptor's distance + direction, live from the
+-- server, so a raptor is never a surprise from behind.
+local radarLabel = makeLabel(gui, "Radar", "", 20,
+	UDim2.new(0.5, 0, 0, 84), Vector2.new(0.5, 0))
+radarLabel.Size = UDim2.new(0, 460, 0, 26)
+radarLabel.Visible = false
+
+-- The egg flash: a big gold "EGG FOUND!" across the centre of the
+-- screen, so a pickup reads even while the player is running.
+local eggFlash = makeLabel(gui, "EggFlash", "", 40,
+	UDim2.new(0.5, 0, 0.42, 0), Vector2.new(0.5, 0.5))
+eggFlash.Size = UDim2.new(0, 620, 0, 56)
+eggFlash.TextColor3 = Color3.fromRGB(255, 210, 90)
+eggFlash.Visible = false
+
 -- The roar banner: a big warning across the top of the screen when a
 -- round starts, so the player looks for the red markers at once.
 local banner = makePanel(gui, "RoarBanner", UDim2.new(0, 560, 0, 52), UDim2.new(0.5, 0, 0, 92), Vector2.new(0.5, 0))
@@ -310,6 +325,7 @@ local function showHUD(show)
 	shopButton.Visible = show
 	hintLabel.Visible = show
 	torchLabel.Visible = show
+	radarLabel.Visible = show
 end
 
 local function startPlaying()
@@ -444,6 +460,22 @@ gameEvent.OnClientEvent:Connect(function(action, data)
 		eggLabel.Text = string.format("🥚 %d/%d", eggsFound, eggTotal)
 		pulseEggs()
 		playPing(1.5)
+		-- Big centre flash + chime, so the pickup is unmistakable.
+		eggFlash.Text = string.format("🥚 EGG FOUND! %d/%d", eggsFound, eggTotal)
+		eggFlash.Visible = true
+		task.spawn(function()
+			task.wait(1.5)
+			eggFlash.Visible = false
+		end)
+		task.spawn(function()
+			task.wait(0.12)
+			playPing(2.0)
+		end)
+	elseif action == "radar" then
+		radarLabel.Text = string.format("⚠ RAPTOR %d studs — %s", data.dist, data.dir)
+		radarLabel.TextColor3 = data.chasing and Color3.fromRGB(255, 70, 60)
+			or Color3.fromRGB(255, 200, 90)
+		radarLabel.Visible = true
 	elseif action == "coin" then
 		coins = data.coins
 		coinLabel.Text = string.format("⬢ %d amber", coins)

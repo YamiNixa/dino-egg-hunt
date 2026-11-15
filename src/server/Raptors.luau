@@ -20,7 +20,7 @@ local function buildRaptorModel(home, index)
 	torso.Position = Vector3.new(0, 2.0, 0)
 	torso.Color = Config.PALETTE.raptor
 	torso.Material = Enum.Material.SmoothPlastic
-	torso.Anchored = false
+	torso.Anchored = true
 	torso.CanCollide = true
 	torso.Parent = model
 
@@ -30,7 +30,7 @@ local function buildRaptorModel(home, index)
 	belly.Position = Vector3.new(0, 1.6, -0.3)
 	belly.Color = Config.PALETTE.raptorBelly
 	belly.Material = Enum.Material.SmoothPlastic
-	belly.Anchored = false
+	belly.Anchored = true
 	belly.CanCollide = false
 	belly.Parent = model
 
@@ -42,7 +42,7 @@ local function buildRaptorModel(home, index)
 		stripe.Position = Vector3.new(0, 2.78, zOff)
 		stripe.Color = Config.PALETTE.raptorStripe
 		stripe.Material = Enum.Material.SmoothPlastic
-		stripe.Anchored = false
+		stripe.Anchored = true
 		stripe.CanCollide = false
 		stripe.Parent = model
 	end
@@ -53,7 +53,7 @@ local function buildRaptorModel(home, index)
 	head.Position = Vector3.new(0, 2.7, -2.4)
 	head.Color = Config.PALETTE.raptor
 	head.Material = Enum.Material.SmoothPlastic
-	head.Anchored = false
+	head.Anchored = true
 	head.CanCollide = true
 	head.Parent = model
 
@@ -63,7 +63,7 @@ local function buildRaptorModel(home, index)
 	snout.Position = Vector3.new(0, 2.4, -3.7)
 	snout.Color = Config.PALETTE.raptor
 	snout.Material = Enum.Material.SmoothPlastic
-	snout.Anchored = false
+	snout.Anchored = true
 	snout.CanCollide = false
 	snout.Parent = model
 
@@ -74,7 +74,7 @@ local function buildRaptorModel(home, index)
 		eye.Position = Vector3.new(0.5 * side, 3.0, -3.3)
 		eye.Color = Color3.fromRGB(255, 40, 30)
 		eye.Material = Enum.Material.Neon
-		eye.Anchored = false
+		eye.Anchored = true
 		eye.CanCollide = false
 		eye.Parent = model
 		eye:SetAttribute("EyeSide", side)
@@ -86,7 +86,7 @@ local function buildRaptorModel(home, index)
 	tail.Position = Vector3.new(0, 2.2, 3.2)
 	tail.Color = Config.PALETTE.raptor
 	tail.Material = Enum.Material.SmoothPlastic
-	tail.Anchored = false
+	tail.Anchored = true
 	tail.CanCollide = false
 	tail.Parent = model
 
@@ -97,7 +97,7 @@ local function buildRaptorModel(home, index)
 		leg.Position = Vector3.new(0.7 * side, 1.0, 0)
 		leg.Color = Config.PALETTE.raptorLeg
 		leg.Material = Enum.Material.SmoothPlastic
-		leg.Anchored = false
+		leg.Anchored = true
 		leg.CanCollide = true
 		leg.Parent = model
 		leg:SetAttribute("LegSide", side)
@@ -135,9 +135,9 @@ local function buildRaptorModel(home, index)
 	mark.Parent = marker
 
 	-- A BIG red "!" that floats over the head ALWAYS, so a raptor is
-	-- visible from the spawn point the moment the round starts. The
-	-- chase "!" above stays as the chase-only signal; this one hides
-	-- while chasing so the two never stack on top of each other.
+	-- visible from the spawn point the moment the round starts. It
+	-- stays on while chasing too — the chase "!" above pulses bigger
+	-- instead, so a raptor is never invisible mid-chase.
 	local dot = Instance.new("BillboardGui")
 	dot.Name = "DotMarker"
 	dot.Adornee = head
@@ -160,10 +160,18 @@ local function buildRaptorModel(home, index)
 	return model
 end
 
-local function poseRaptor(raptor, pos, facing)
+local function poseRaptor(raptor, pos, facing, bob)
 	local m = raptor.model
-	-- The model's origin sits on the ground; the parts ride above it.
-	local cf = CFrame.new(pos) * CFrame.Angles(0, facing, 0)
+	-- The model's pivot IS the torso (PrimaryPart). After the 2x scale
+	-- the torso center rides 4.0 above the ground, so the pivot must sit
+	-- at ground (y 1) + 4.0 = y 5.0. The old code pivoted to the home
+	-- y (1) and the patrol y (0), burying the whole body 4-5 studs
+	-- underground while the AlwaysOnTop "!" still showed — exactly
+	-- "tanda seru doang, dino gaada". Parts are anchored now, so
+	-- physics can never drag the model down; PivotTo is the only mover,
+	-- and the bob rides in the CFrame so the whole welded body bobs
+	-- together instead of the torso detaching.
+	local cf = CFrame.new(pos.X, 5.0 + (bob or 0), pos.Z) * CFrame.Angles(0, facing, 0)
 	m:PivotTo(cf)
 end
 
@@ -198,7 +206,7 @@ function Raptors.spawnAll(workspace)
 	end
 end
 
-function Raptors.nearestPlayerPos(raptor, players)
+function Raptors.nearestPlayerPos(raptor, players, grace)
 	local best = nil
 	local bestDist = Config.RAPTOR_SPOT_RANGE
 	local rp = raptor.model.PrimaryPart.Position
@@ -206,7 +214,7 @@ function Raptors.nearestPlayerPos(raptor, players)
 		local char = player.Character
 		local root = char and char:FindFirstChild("HumanoidRootPart")
 		local hum = char and char:FindFirstChildOfClass("Humanoid")
-		if root and hum and hum.Health > 0 then
+		if root and hum and hum.Health > 0 and not (grace and grace[player]) then
 			local d = (root.Position - rp).Magnitude
 			if d < bestDist then
 				bestDist = d
@@ -239,7 +247,38 @@ function Raptors.scareNearest(player, now)
 	return false
 end
 
-function Raptors.update(dt, now, players, onCatch)
+-- The radar: nearest raptor to a player, with its direction relative to
+-- where the player is facing (the camera looks the same way in third
+-- person), so the HUD can warn "RAPTOR 14 studs — BEHIND YOU".
+function Raptors.nearestRadar(player)
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root then return nil end
+	local best = nil
+	local bestDist = math.huge
+	for _, raptor in ipairs(Raptors.list) do
+		local d = (raptor.model.PrimaryPart.Position - root.Position).Magnitude
+		if d < bestDist then
+			bestDist = d
+			best = raptor
+		end
+	end
+	if not best then return nil end
+	local to = best.model.PrimaryPart.Position - root.Position
+	local look = root.CFrame.LookVector
+	local right = root.CFrame.RightVector
+	local f = Vector3.new(to.X, 0, to.Z):Dot(Vector3.new(look.X, 0, look.Z))
+	local s = Vector3.new(to.X, 0, to.Z):Dot(Vector3.new(right.X, 0, right.Z))
+	local dir = "AHEAD"
+	if math.abs(f) >= math.abs(s) then
+		dir = f >= 0 and "AHEAD" or "BEHIND YOU"
+	else
+		dir = s > 0 and "RIGHT" or "LEFT"
+	end
+	return { dist = math.floor(bestDist), dir = dir, chasing = best.state == "chase" }
+end
+
+function Raptors.update(dt, now, players, onCatch, grace)
 	for _, raptor in ipairs(Raptors.list) do
 		local root = raptor.model.PrimaryPart
 		local pos = root.Position
@@ -284,7 +323,7 @@ function Raptors.update(dt, now, players, onCatch)
 				raptor.waypoint = raptor.home + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
 			end
 			moveTarget = raptor.waypoint
-			local player, _ = Raptors.nearestPlayerPos(raptor, players)
+			local player, _ = Raptors.nearestPlayerPos(raptor, players, grace)
 			if player then
 				raptor.state = "chase"
 				raptor.target = player
@@ -299,22 +338,27 @@ function Raptors.update(dt, now, players, onCatch)
 				local next = Vector3.new(pos.X, 0, pos.Z) + step
 				next = Vector3.new(
 					math.clamp(next.X, -105, 105),
-					0,
+					5.0,
 					math.clamp(next.Z, -105, 105)
 				)
 				local facing = math.atan2(-dir.X, -dir.Z)
-				poseRaptor(raptor, next, facing)
 				-- A little bob while it runs, so it reads as alive, not sliding.
 				raptor.walkPhase += dt * (speed * 0.9)
 				local bob = math.abs(math.sin(raptor.walkPhase)) * 0.25
-				raptor.model.PrimaryPart.Position += Vector3.new(0, bob, 0)
+				poseRaptor(raptor, next, facing, bob)
 			end
 		end
 		if raptor.marker then
 			raptor.marker.Enabled = (raptor.state == "chase")
+			-- Pulse bigger while chasing, instead of the always-on
+			-- marker hiding: a raptor is never invisible mid-chase.
+			if raptor.state == "chase" then
+				local s = 4 + 0.8 * math.abs(math.sin(now * 6))
+				raptor.marker.Size = UDim2.new(s, 0, s, 0)
+			end
 		end
 		if raptor.dot then
-			raptor.dot.Enabled = (raptor.state ~= "chase")
+			raptor.dot.Enabled = true
 		end
 	end
 end
