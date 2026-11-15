@@ -158,9 +158,9 @@ local function spawnEggs(parent)
 		Map.buildNest(parent, spot)
 		local egg = Instance.new("Part")
 		egg.Name = "Egg" .. i
-		egg.Size = Vector3.new(2.2, 2.8, 2.2)
-		egg.Position = spot + Vector3.new(0, 1.7, 0)
-		egg.Color = Config.PALETTE.egg
+		egg.Size = Vector3.new(3.2, 3.8, 3.2)
+		egg.Position = spot + Vector3.new(0, 2.0, 0)
+		egg.Color = Color3.fromRGB(255, 246, 210)
 		egg.Material = Enum.Material.SmoothPlastic
 		egg.Shape = Enum.PartType.Ball
 		egg.Anchored = true
@@ -169,22 +169,44 @@ local function spawnEggs(parent)
 		egg.Parent = parent
 		local glow = Instance.new("PointLight")
 		glow.Color = Color3.fromRGB(255, 240, 180)
-		glow.Range = 14
-		glow.Brightness = 1.6
+		glow.Range = 18
+		glow.Brightness = 2
 		glow.Parent = egg
 		eggs[i] = egg
-		-- A pillar of light over every nest, so each egg is findable
-		-- from across the island.
-		local beacon = Instance.new("Part")
-		beacon.Name = "EggBeacon" .. i
-		beacon.Size = Vector3.new(1.4, 30, 1.4)
-		beacon.Position = spot + Vector3.new(0, 15, 0)
-		beacon.Color = Color3.fromRGB(255, 210, 90)
-		beacon.Material = Enum.Material.Neon
-		beacon.Transparency = 0.7
-		beacon.Anchored = true
-		beacon.CanCollide = false
-		beacon.Parent = parent
+		-- A soft glowing ring flat on the ground under the nest, so the
+		-- spot reads as special even when the egg is behind a tree.
+		-- (Cylinder axis is X: Size.x is the thickness, and the 90 deg
+		-- Z rotation lays the disc flat.)
+		local ring = Instance.new("Part")
+		ring.Name = "EggRing" .. i
+		ring.Size = Vector3.new(0.3, 7, 7)
+		ring.Position = spot + Vector3.new(0, 0.35, 0)
+		ring.Color = Color3.fromRGB(255, 210, 90)
+		ring.Material = Enum.Material.Neon
+		ring.Transparency = 0.5
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Orientation = Vector3.new(0, 0, 90)
+		ring.Anchored = true
+		ring.CanCollide = false
+		ring.Parent = parent
+		-- A floating egg icon over the egg, always on top, so an egg is
+		-- unmissable from across the island. The tall yellow beacon
+		-- pillars are gone: Adrian read them as something else, not eggs.
+		local icon = Instance.new("BillboardGui")
+		icon.Name = "EggIcon"
+		icon.Adornee = egg
+		icon.Size = UDim2.new(4, 0, 4, 0)
+		icon.StudsOffset = Vector3.new(0, 5, 0)
+		icon.AlwaysOnTop = true
+		icon.Parent = egg
+		local iconText = Instance.new("TextLabel")
+		iconText.Name = "Icon"
+		iconText.Size = UDim2.new(1, 0, 1, 0)
+		iconText.BackgroundTransparency = 1
+		iconText.Text = "🥚"
+		iconText.TextScaled = true
+		iconText.Font = Enum.Font.GothamBold
+		iconText.Parent = icon
 	end
 end
 

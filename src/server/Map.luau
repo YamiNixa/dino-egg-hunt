@@ -24,24 +24,107 @@ local function part(parent, name, className, size, pos, color, material, anchore
 	return p
 end
 
+-- A flattened foliage blob: one lump of a crown, never the whole crown.
+local function blob(parent, name, size, pos, color)
+	local b = part(parent, name, "Part", size, pos, color, Enum.Material.Grass)
+	b.Shape = Enum.PartType.Ball
+	return b
+end
+
 local function tree(parent, pos, height, rng, giant)
-	-- Trees are big now: trunks 12-20 studs, crowns 12-16 across, so
-	-- the jungle reads as a jungle, not a lawn with twigs. A giant
-	-- tree gets a 4-stud trunk and a 20-stud crown.
+	-- No more dango: no single perfect ball on a straight stick. A real
+	-- tree here is a tapered trunk (two stacked cylinders, the upper one
+	-- narrower), angled branches, and a crown of several flattened,
+	-- offset blobs, so no two trees share a silhouette. One in three
+	-- trees is a palm instead: a gently leaning trunk of stacked
+	-- segments with long flat fronds radiating from the top.
+	-- (Roblox cylinders run along the X axis: Size.x is the length, and
+	-- a 90 deg Z rotation stands one upright.)
 	local trunkH = height or (12 + rng:NextNumber() * 8)
 	local trunkW = giant and 4 or 2.4
+	local top = pos + Vector3.new(0, trunkH, 0)
+	if not giant and rng:NextNumber() < 0.3 then
+		-- Palm: three trunk segments, each leaning a little further.
+		-- slope is the horizontal shift per stud of height, so the
+		-- segments stack along one gently leaning line.
+		local lean = rng:NextNumber(-9, 9)
+		local slope = math.tan(math.rad(lean))
+		local segH = trunkH / 3
+		for i = 1, 3 do
+			local w = trunkW * (1 - (i - 1) * 0.18)
+			local midY = segH * (i - 0.5)
+			local seg = part(parent, "Trunk", "Part", Vector3.new(segH + 0.4, w, w),
+				Vector3.new(pos.X + slope * midY, midY, pos.Z),
+				Config.PALETTE.trunk, Enum.Material.Wood)
+			seg.Shape = Enum.PartType.Cylinder
+			seg.Orientation = Vector3.new(0, 0, 90 - lean)
+			seg.TopSurface = Enum.SurfaceType.Smooth
+		end
+		top = Vector3.new(pos.X + slope * trunkH, trunkH, pos.Z)
+		-- Fronds: long flat leaves radiating from the crown, drooping down.
+		for i = 1, 6 do
+			local a = math.rad((i - 1) * 60 + rng:NextNumber() * 20)
+			local dir = Vector3.new(math.sin(a), -0.45, math.cos(a))
+			local frond = part(parent, "Frond", "Part", Vector3.new(1.2, 0.25, 7),
+				top + dir * 3, (i % 2 == 0) and Config.PALETTE.leaf or Config.PALETTE.leafLight,
+				Enum.Material.Grass)
+			frond.CFrame = CFrame.new(top + dir * 3, top + dir * 7)
+			frond.CanCollide = false
+		end
+		-- A coconut cluster under the crown so the palm reads as a palm.
+		blob(parent, "Coconuts", Vector3.new(1.8, 1.8, 1.8),
+			top + Vector3.new(0, -1.2, 0), Config.PALETTE.trunk)
+		return top
+	end
+	-- Canopy tree: tapered trunk in two stacked cylinders.
+	local lower = part(parent, "Trunk", "Part", Vector3.new(trunkH * 0.62, trunkW, trunkW),
+		pos + Vector3.new(0, trunkH * 0.31, 0), Config.PALETTE.trunk, Enum.Material.Wood)
+	lower.Shape = Enum.PartType.Cylinder
+	lower.Orientation = Vector3.new(0, 0, 90)
+	lower.TopSurface = Enum.SurfaceType.Smooth
+	local upperW = trunkW * 0.68
+	local upper = part(parent, "TrunkTop", "Part", Vector3.new(trunkH * 0.45, upperW, upperW),
+		pos + Vector3.new(0, trunkH * 0.62 + trunkH * 0.22, 0),
+		Config.PALETTE.trunk, Enum.Material.Wood)
+	upper.Shape = Enum.PartType.Cylinder
+	upper.Orientation = Vector3.new(0, 0, 90)
+	upper.TopSurface = Enum.SurfaceType.Smooth
+	-- Angled branches off the upper trunk, aimed with CFrame lookAt.
+	local branchCount = giant and 4 or (2 + math.floor(rng:NextNumber() * 2))
+	for i = 1, branchCount do
+		local a = math.rad(rng:NextNumber(0, 360))
+		local len = 3 + rng:NextNumber() * 2.5
+		local dir = Vector3.new(math.sin(a) * 0.8, 0.6, math.cos(a) * 0.8)
+		local center = top + dir * (len / 2) + Vector3.new(0, -1.5, 0)
+		local branch = part(parent, "Branch", "Part", Vector3.new(0.6, 0.6, len),
+			center, Config.PALETTE.trunk, Enum.Material.Wood)
+		branch.CFrame = CFrame.new(center, center + dir)
+	end
+	-- Crown: several flattened blobs, offset and varied, never one ball.
 	local crownS = giant and 20 or (11 + rng:NextNumber() * 5)
-	local trunk = part(parent, "Trunk", "Part", Vector3.new(trunkW, trunkH, trunkW),
-		pos + Vector3.new(0, trunkH / 2, 0), Config.PALETTE.trunk, Enum.Material.Wood)
-	trunk.TopSurface = Enum.SurfaceType.Smooth
-	local crownY = trunkH + crownS * 0.35
-	local crown = part(parent, "Crown", "Part", Vector3.new(crownS, crownS * 0.65, crownS),
-		pos + Vector3.new(0, crownY, 0), Config.PALETTE.leaf, Enum.Material.Grass)
-	crown.Shape = Enum.PartType.Ball
-	local crown2 = part(parent, "CrownTop", "Part", Vector3.new(crownS * 0.6, crownS * 0.45, crownS * 0.6),
-		pos + Vector3.new(1, crownY + crownS * 0.3, -0.5), Config.PALETTE.leafLight, Enum.Material.Grass)
-	crown2.Shape = Enum.PartType.Ball
-	return trunk
+	local blobs = giant and 5 or (3 + math.floor(rng:NextNumber() * 3))
+	for i = 1, blobs do
+		local a = math.rad(rng:NextNumber(0, 360))
+		local r = crownS * (0.12 + rng:NextNumber() * 0.22)
+		local s = crownS * (0.5 + rng:NextNumber() * 0.35)
+		blob(parent, "Crown", Vector3.new(s, s * 0.55, s * (0.85 + rng:NextNumber() * 0.3)),
+			top + Vector3.new(math.cos(a) * r, rng:NextNumber(-1, 2.5), math.sin(a) * r),
+			(i % 2 == 0) and Config.PALETTE.leafLight or Config.PALETTE.leaf)
+	end
+	-- Hanging vines on the big trees.
+	if giant then
+		for i = 1, 3 do
+			local a = math.rad(rng:NextNumber(0, 360))
+			local vine = part(parent, "Vine", "Part",
+				Vector3.new(4 + rng:NextNumber() * 2, 0.35, 0.35),
+				top + Vector3.new(math.cos(a) * crownS * 0.4, -1, math.sin(a) * crownS * 0.4),
+				Config.PALETTE.leaf, Enum.Material.Grass)
+			vine.Shape = Enum.PartType.Cylinder
+			vine.Orientation = Vector3.new(0, 0, 90)
+			vine.CanCollide = false
+		end
+	end
+	return top
 end
 
 local function fern(parent, pos, rng)
@@ -91,7 +174,7 @@ local function camp(parent)
 			Vector3.new(cx + math.cos(a) * 6, 3, cz + math.sin(a) * 6),
 			Config.PALETTE.trunk, Enum.Material.Wood)
 	end
-	local fire = part(parent, "FirePit", "Part", Vector3.new(3, 0.6, 3),
+	local fire = part(parent, "FirePit", "Part", Vector3.new(0.6, 3, 3),
 		Vector3.new(cx, 1.3, cz), Config.PALETTE.rock, Enum.Material.Slate)
 	fire.Shape = Enum.PartType.Cylinder
 	fire.Orientation = Vector3.new(0, 0, 90)
@@ -142,7 +225,7 @@ function Map.build(workspace)
 	local river = part(island, "River", "Part", Vector3.new(14, 0.4, ISLAND_SIZE),
 		Vector3.new(95, 0.3, 0), Config.PALETTE.water, Enum.Material.Water)
 	river.CanCollide = false
-	local lake = part(island, "Lake", "Part", Vector3.new(34, 0.4, 30),
+	local lake = part(island, "Lake", "Part", Vector3.new(0.4, 34, 30),
 		Vector3.new(-60, 0.3, -60), Config.PALETTE.water, Enum.Material.Water)
 	lake.Shape = Enum.PartType.Cylinder
 	lake.Orientation = Vector3.new(0, 0, 90)

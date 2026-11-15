@@ -39,7 +39,7 @@ Config.CAMP_SPAWN = Vector3.new(-80, 3, 80)
 -- The pack: three raptors, each with a home clearing to patrol from.
 Config.RAPTOR_COUNT = 3
 Config.RAPTOR_HOMES = {
-	Vector3.new(30, 1, -30),
+	Vector3.new(-55, 1, 55),
 	Vector3.new(-35, 1, 30),
 	Vector3.new(0, 1, -55),
 }

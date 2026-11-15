@@ -121,6 +121,26 @@ local function buildRaptorModel(home, index)
 	mark.Font = Enum.Font.GothamBlack
 	mark.Parent = marker
 
+	-- A small red diamond that floats over the head ALWAYS, so a raptor
+	-- is visible from the start even when it is only patrolling. The
+	-- big "!" above stays chase-only.
+	local dot = Instance.new("BillboardGui")
+	dot.Name = "DotMarker"
+	dot.Adornee = head
+	dot.Size = UDim2.new(1.4, 0, 1.4, 0)
+	dot.StudsOffset = Vector3.new(0, 1.7, 0)
+	dot.AlwaysOnTop = true
+	dot.Parent = head
+	local dotText = Instance.new("TextLabel")
+	dotText.Name = "Dot"
+	dotText.Size = UDim2.new(1, 0, 1, 0)
+	dotText.BackgroundTransparency = 1
+	dotText.Text = "◆"
+	dotText.TextColor3 = Color3.fromRGB(255, 60, 50)
+	dotText.TextScaled = true
+	dotText.Font = Enum.Font.GothamBlack
+	dotText.Parent = dot
+
 	-- The whole raptor reads bigger: 1.3x, so it is impossible to miss.
 	model:ScaleTo(1.3)
 	return model
