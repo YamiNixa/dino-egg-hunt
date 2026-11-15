@@ -37,9 +37,12 @@ Config.COIN_SPOTS = {
 Config.CAMP_SPAWN = Vector3.new(-80, 3, 80)
 
 -- The pack: three raptors, each with a home clearing to patrol from.
+-- Raptor 1 is the SHOWCASE: its home is 12 studs in front of the camp
+-- spawn, on the tree-cleared sightline from camp, so the player sees a
+-- dino the moment the round starts. The other two keep their old homes.
 Config.RAPTOR_COUNT = 3
 Config.RAPTOR_HOMES = {
-	Vector3.new(-65, 1, 65),
+	Vector3.new(-71.5, 1, 71.5),
 	Vector3.new(-35, 1, 30),
 	Vector3.new(0, 1, -55),
 }
@@ -47,7 +50,15 @@ Config.RAPTOR_PATROL_SPEED = 8
 Config.RAPTOR_CHASE_SPEED = 16
 Config.RAPTOR_SPOT_RANGE = 42
 Config.RAPTOR_CATCH_RANGE = 4
-Config.RAPTOR_PATROL_RADIUS = 26
+-- Patrol radius 10, not 26: the old 26-stud radius let raptors wander
+-- far off the cleared sightlines into dense trees within seconds of
+-- spawning, so the player never saw a body — only the AlwaysOnTop "!"
+-- showing through the canopy. Ten studs keeps them near their clearings.
+Config.RAPTOR_PATROL_RADIUS = 10
+-- Showcase hold: raptor 1 stands at its home facing camp for the first
+-- 5 seconds of the round (inside the 10s grace, so it cannot attack),
+-- so the opening view is a dino, not an empty lawn.
+Config.RAPTOR_SHOWCASE_HOLD_SECONDS = 5
 -- Grace: raptors do not engage a player in their first 10 seconds of a
 -- round, so the player sees them patrolling with their red markers
 -- before anything can catch them from behind.
@@ -91,6 +102,13 @@ Config.PALETTE = {
 	raptorBelly = Color3.fromRGB(214, 202, 150),
 	raptorStripe = Color3.fromRGB(60, 35, 20),
 	raptorLeg = Color3.fromRGB(70, 40, 25),
+	-- The showcase raptor (raptor 1, in front of camp) is vivid orange,
+	-- so it can never blend into the green jungle the way the brown
+	-- pack does at 20+ studs.
+	raptorShow = Color3.fromRGB(255, 110, 40),
+	raptorShowBelly = Color3.fromRGB(255, 230, 170),
+	raptorShowStripe = Color3.fromRGB(140, 40, 10),
+	raptorShowLeg = Color3.fromRGB(180, 60, 20),
 	campfire = Color3.fromRGB(255, 140, 40),
 	flower = Color3.fromRGB(255, 150, 190),
 	mountain = Color3.fromRGB(112, 98, 88),

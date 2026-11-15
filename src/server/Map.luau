@@ -248,9 +248,10 @@ function Map.build(workspace)
 	-- Trees: seventy of them, kept clear of the camp, the river and the nests.
 	local keepClear = { Config.CAMP_SPAWN }
 	for _, s in ipairs(Config.EGG_SPOTS) do table.insert(keepClear, s) end
-	-- The sightline from the camp spawn to raptor 1's home stays OPEN:
-	-- no tree may stand within 8 studs of that line, so the big brown
-	-- raptor is visible from the spawn point the moment the round starts.
+	-- The sightline from the camp spawn to raptor 1's showcase home
+	-- stays OPEN: no tree may stand within 8 studs of that line, so
+	-- the big orange raptor is visible from the spawn point the moment
+	-- the round starts.
 	local function segDist(px, pz, ax, az, bx, bz)
 		local dx, dz = bx - ax, bz - az
 		local len2 = dx * dx + dz * dz
@@ -268,7 +269,7 @@ function Map.build(workspace)
 		for _, c in ipairs(keepClear) do
 			if (Vector3.new(x, 0, z) - Vector3.new(c.X, 0, c.Z)).Magnitude < 9 then ok = false end
 		end
-		if segDist(x, z, -80, 80, -65, 65) < 8 then ok = false end
+		if segDist(x, z, -80, 80, -71.5, 71.5) < 8 then ok = false end
 		if ok then
 			tree(island, Vector3.new(x, 0, z), nil, rng)
 			placed += 1
