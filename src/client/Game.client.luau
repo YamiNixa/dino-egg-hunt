@@ -87,6 +87,76 @@ local function playPing(pitch)
 	if not ok then warn("[EggHunt] sound failed: " .. tostring(err)) end
 end
 
+-- The roar: two low, loud pings staggered, so the round opens with a
+-- growl instead of silence. Built-in sound only, no external asset.
+local function playRoar()
+	for _, pitch in ipairs({ 0.3, 0.45 }) do
+		task.spawn(function()
+			if pitch > 0.3 then task.wait(0.28) end
+			local ok, err = pcall(function()
+				local s = Instance.new("Sound")
+				s.SoundId = PING_SOUND
+				s.Volume = 1
+				s.PlaybackSpeed = pitch
+				s.Parent = gui
+				SoundService:PlayLocalSound(s)
+				game:GetService("Debris"):AddItem(s, 3)
+			end)
+			if not ok then warn("[EggHunt] roar failed: " .. tostring(err)) end
+		end)
+	end
+end
+
+-- The torch animation, client-side: the flame flickers every frame, the
+-- torch sways gently while the player walks, and pressing F raises it in
+-- a wave while the flame flares. The F mechanic itself is untouched —
+-- this is visuals only, driven through the tool's Grip so it never
+-- fights the default walk animation.
+local torchWaveUntil = 0
+local torchFlareUntil = 0
+local torchBaseGrip = nil
+local torchFlame = nil
+local torchLight = nil
+
+local function findTorchParts()
+	local char = player.Character
+	if not char then return nil end
+	local tool = char:FindFirstChild("Torch")
+	if not tool then return nil end
+	local flame = tool:FindFirstChild("Flame")
+	if not flame then return nil end
+	torchFlame = flame
+	torchLight = flame:FindFirstChildOfClass("PointLight")
+	if not torchBaseGrip then torchBaseGrip = tool.Grip end
+	return tool
+end
+
+local function animateTorch(now, dt)
+	local tool = findTorchParts()
+	if not tool then return end
+	local t = now * 1
+	-- Flicker: flame size and light brightness wobble on two sines.
+	local flick = 1 + 0.12 * math.sin(t * 13) + 0.06 * math.sin(t * 29)
+	local flare = now < torchFlareUntil and 1.6 or 1
+	torchFlame.Size = Vector3.new(1.0 * flick * flare, 1.3 * flick * flare, 1.0 * flick * flare)
+	if torchLight then
+		torchLight.Brightness = (1.5 + 0.5 * math.sin(t * 11)) * (now < torchFlareUntil and 2.3 or 1)
+	end
+	-- Sway: a gentle swing while walking, still while standing.
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	local moving = hum and hum.MoveDirection.Magnitude > 0.1
+	local swayAmp = moving and 0.12 or 0.04
+	local sway = math.sin(t * (moving and 6 or 2)) * swayAmp
+	-- Wave: on F the torch raises up and out, then settles back.
+	local wave = 0
+	if now < torchWaveUntil then
+		local p = 1 - (torchWaveUntil - now) / 1
+		wave = math.sin(p * math.pi) * 1.1
+	end
+	tool.Grip = (torchBaseGrip or CFrame.new()) * CFrame.Angles(-wave, 0, sway)
+end
+
 -- The HUD: eggs and the clock top-centre, hearts and amber top-right.
 -- Nothing sits in the top-left corner: Roblox's own menu lives there.
 local hud = makePanel(gui, "HUD", UDim2.new(0, 460, 0, 64), UDim2.new(0.5, 0, 0, 12), Vector2.new(0.5, 0))
@@ -113,6 +183,17 @@ local torchLabel = makeLabel(gui, "Torch", "🔥 Torch ready [F]", 18,
 	UDim2.new(0.5, 0, 1, -80), Vector2.new(0.5, 1))
 torchLabel.Size = UDim2.new(0, 300, 0, 26)
 torchLabel.Visible = false
+
+-- The roar banner: a big warning across the top of the screen when a
+-- round starts, so the player looks for the red markers at once.
+local banner = makePanel(gui, "RoarBanner", UDim2.new(0, 560, 0, 52), UDim2.new(0.5, 0, 0, 92), Vector2.new(0.5, 0))
+banner.BackgroundColor3 = Color3.fromRGB(120, 20, 15)
+banner.BackgroundTransparency = 0.1
+banner.Visible = false
+local bannerLabel = makeLabel(banner, "Text", "🦖 RAPTORS ARE HUNTING — watch the red markers!", 22,
+	UDim2.new(0.5, 0, 0.5, 0), Vector2.new(0.5, 0.5))
+bannerLabel.Size = UDim2.new(1, -16, 1, 0)
+bannerLabel.TextColor3 = Color3.fromRGB(255, 230, 200)
 
 -- The damage flash: a red wash that fades after a catch.
 local flash = Instance.new("Frame")
@@ -288,6 +369,10 @@ end
 local function useTorch()
 	local now = os.clock()
 	if now < torchReadyAt then return end
+	-- The wave starts at once on the client, even if no raptor is in
+	-- range: the player sees the torch raise the moment they press F.
+	torchWaveUntil = now + 1
+	torchFlareUntil = now + 1
 	gameEvent:FireServer("torch")
 end
 
@@ -327,6 +412,7 @@ RunService.RenderStepped:Connect(function()
 	if roundStart then
 		timerLabel.Text = fmtTime(os.clock() - roundStart)
 	end
+	animateTorch(os.clock(), 0)
 	if torchReadyAt > 0 and os.clock() >= torchReadyAt then
 		torchReadyAt = 0
 		torchLabel.Text = "🔥 Torch ready [F]"
@@ -345,6 +431,14 @@ gameEvent.OnClientEvent:Connect(function(action, data)
 		coinLabel.Text = string.format("⬢ %d amber", coins)
 		drawHearts()
 		if data.shop then fillShop(data.shop) end
+		-- Round opens with a roar and a warning banner: look for the
+		-- red markers, the raptors are already out there.
+		banner.Visible = true
+		playRoar()
+		task.spawn(function()
+			task.wait(4)
+			banner.Visible = false
+		end)
 	elseif action == "egg" then
 		eggsFound = data.found
 		eggLabel.Text = string.format("🥚 %d/%d", eggsFound, eggTotal)

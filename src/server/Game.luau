@@ -76,22 +76,52 @@ local function giveTorchTool(player)
 	handle.Size = Vector3.new(0.5, 2.2, 0.5)
 	handle.Color = Color3.fromRGB(120, 84, 48)
 	handle.Material = Enum.Material.Wood
+	handle.CanCollide = false
 	handle.Parent = tool
+	-- A dark wrapped band around the head of the handle, so the torch
+	-- reads as a real wrapped torch, not a plain stick.
+	local wrap = Instance.new("Part")
+	wrap.Name = "Wrap"
+	wrap.Size = Vector3.new(0.7, 0.5, 0.7)
+	wrap.Position = Vector3.new(0, 0.9, 0)
+	wrap.Color = Color3.fromRGB(60, 40, 20)
+	wrap.Material = Enum.Material.Fabric
+	wrap.CanCollide = false
+	wrap.Parent = tool
+	local wrapWeld = Instance.new("WeldConstraint")
+	wrapWeld.Part0 = handle
+	wrapWeld.Part1 = wrap
+	wrapWeld.Parent = handle
 	local flame = Instance.new("Part")
 	flame.Name = "Flame"
-	flame.Size = Vector3.new(0.8, 1.0, 0.8)
-	flame.Position = Vector3.new(0, 1.5, 0)
+	flame.Size = Vector3.new(1.0, 1.3, 1.0)
+	flame.Position = Vector3.new(0, 1.8, 0)
 	flame.Color = Config.PALETTE.campfire
 	flame.Material = Enum.Material.Neon
 	flame.Shape = Enum.PartType.Ball
+	flame.CanCollide = false
 	flame.Parent = tool
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = handle
 	weld.Part1 = flame
 	weld.Parent = handle
+	-- A yellow flame tip, so the flame has a shape, not just a ball.
+	local tip = Instance.new("Part")
+	tip.Name = "FlameTip"
+	tip.Size = Vector3.new(0.7, 0.9, 0.7)
+	tip.Position = Vector3.new(0, 2.6, 0)
+	tip.Color = Color3.fromRGB(255, 220, 80)
+	tip.Material = Enum.Material.Neon
+	tip.Shape = Enum.PartType.Wedge
+	tip.CanCollide = false
+	tip.Parent = tool
+	local tipWeld = Instance.new("WeldConstraint")
+	tipWeld.Part0 = handle
+	tipWeld.Part1 = tip
+	tipWeld.Parent = handle
 	local light = Instance.new("PointLight")
 	light.Color = Color3.fromRGB(255, 150, 50)
-	light.Range = 12
+	light.Range = 14
 	light.Brightness = 1.5
 	light.Parent = flame
 	tool.Parent = backpack
@@ -156,10 +186,13 @@ end
 local function spawnEggs(parent)
 	for i, spot in ipairs(Config.EGG_SPOTS) do
 		Map.buildNest(parent, spot)
+		-- A DINOSAUR egg, not a chicken egg: big (4.6 wide, 5.4 tall,
+		-- taller than a player's torso), elongated, cream with dark
+		-- speckles stuck on the shell so it reads as a dino egg.
 		local egg = Instance.new("Part")
 		egg.Name = "Egg" .. i
-		egg.Size = Vector3.new(3.2, 3.8, 3.2)
-		egg.Position = spot + Vector3.new(0, 2.0, 0)
+		egg.Size = Vector3.new(4.6, 5.4, 4.6)
+		egg.Position = spot + Vector3.new(0, 2.7, 0)
 		egg.Color = Color3.fromRGB(255, 246, 210)
 		egg.Material = Enum.Material.SmoothPlastic
 		egg.Shape = Enum.PartType.Ball
@@ -167,10 +200,36 @@ local function spawnEggs(parent)
 		egg.CanCollide = false
 		egg:SetAttribute("EggIndex", i)
 		egg.Parent = parent
+		-- Speckles: small flat spots on the shell, at fixed angles so
+		-- every egg looks the same in every server. They sit just
+		-- inside the shell surface (0.92 of the radius) so they read
+		-- as part of the egg, not floating beside it.
+		local speckleCols = { Color3.fromRGB(58, 92, 44), Color3.fromRGB(122, 82, 52) }
+		local speckleDirs = {
+			{ 0, 30 }, { 90, 50 }, { 180, 40 }, { 270, 55 },
+			{ 45, 80 }, { 135, 75 }, { 225, 85 }, { 315, 70 }, { 60, 15 },
+		}
+		for s, dir in ipairs(speckleDirs) do
+			local theta = math.rad(dir[1])
+			local phi = math.rad(dir[2])
+			local ux = math.sin(phi) * math.cos(theta)
+			local uy = math.cos(phi)
+			local uz = math.sin(phi) * math.sin(theta)
+			local sp = Instance.new("Part")
+			sp.Name = "Speckle"
+			sp.Size = Vector3.new(0.9, 0.7, 0.9)
+			sp.Position = egg.Position + Vector3.new(ux * 2.3 * 0.92, uy * 2.7 * 0.92, uz * 2.3 * 0.92)
+			sp.Color = speckleCols[(s % 2) + 1]
+			sp.Material = Enum.Material.SmoothPlastic
+			sp.Shape = Enum.PartType.Ball
+			sp.Anchored = true
+			sp.CanCollide = false
+			sp.Parent = egg
+		end
 		local glow = Instance.new("PointLight")
 		glow.Color = Color3.fromRGB(255, 240, 180)
-		glow.Range = 18
-		glow.Brightness = 2
+		glow.Range = 20
+		glow.Brightness = 2.5
 		glow.Parent = egg
 		eggs[i] = egg
 		-- A soft glowing ring flat on the ground under the nest, so the
@@ -179,7 +238,7 @@ local function spawnEggs(parent)
 		-- Z rotation lays the disc flat.)
 		local ring = Instance.new("Part")
 		ring.Name = "EggRing" .. i
-		ring.Size = Vector3.new(0.3, 7, 7)
+		ring.Size = Vector3.new(0.3, 8.5, 8.5)
 		ring.Position = spot + Vector3.new(0, 0.35, 0)
 		ring.Color = Color3.fromRGB(255, 210, 90)
 		ring.Material = Enum.Material.Neon
@@ -195,8 +254,8 @@ local function spawnEggs(parent)
 		local icon = Instance.new("BillboardGui")
 		icon.Name = "EggIcon"
 		icon.Adornee = egg
-		icon.Size = UDim2.new(4, 0, 4, 0)
-		icon.StudsOffset = Vector3.new(0, 5, 0)
+		icon.Size = UDim2.new(6, 0, 6, 0)
+		icon.StudsOffset = Vector3.new(0, 7.5, 0)
 		icon.AlwaysOnTop = true
 		icon.Parent = egg
 		local iconText = Instance.new("TextLabel")
@@ -278,6 +337,14 @@ local function onPlayerAdded(player)
 	player.CharacterAdded:Connect(function(char)
 		task.wait(0.2)
 		giveTorchTool(player)
+		-- The torch starts IN the hand, not in the backpack: equip it
+		-- the moment the character loads, so the flame is always visible.
+		local hum = char:FindFirstChildOfClass("Humanoid")
+		local backpack = player:FindFirstChildOfClass("Backpack")
+		local torch = backpack and backpack:FindFirstChild("Torch")
+		if hum and torch then
+			hum:EquipTool(torch)
+		end
 		applySpeed(player)
 		if roundActive then
 			local state = states[player]

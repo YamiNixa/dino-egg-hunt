@@ -34,6 +34,19 @@ local function buildRaptorModel(home, index)
 	belly.CanCollide = false
 	belly.Parent = model
 
+	-- Dark back stripes, so the brown body reads as a dino, not a box.
+	for i, zOff in ipairs({ -1.2, 0, 1.2 }) do
+		local stripe = Instance.new("Part")
+		stripe.Name = "Stripe"
+		stripe.Size = Vector3.new(2.3, 0.25, 0.5)
+		stripe.Position = Vector3.new(0, 2.78, zOff)
+		stripe.Color = Config.PALETTE.raptorStripe
+		stripe.Material = Enum.Material.SmoothPlastic
+		stripe.Anchored = false
+		stripe.CanCollide = false
+		stripe.Parent = model
+	end
+
 	local head = Instance.new("Part")
 	head.Name = "Head"
 	head.Size = Vector3.new(1.6, 1.4, 2.2)
@@ -82,7 +95,7 @@ local function buildRaptorModel(home, index)
 		leg.Name = "Leg"
 		leg.Size = Vector3.new(0.7, 2.0, 0.9)
 		leg.Position = Vector3.new(0.7 * side, 1.0, 0)
-		leg.Color = Color3.fromRGB(70, 95, 45)
+		leg.Color = Config.PALETTE.raptorLeg
 		leg.Material = Enum.Material.SmoothPlastic
 		leg.Anchored = false
 		leg.CanCollide = true
@@ -106,8 +119,8 @@ local function buildRaptorModel(home, index)
 	local marker = Instance.new("BillboardGui")
 	marker.Name = "ChaseMarker"
 	marker.Adornee = head
-	marker.Size = UDim2.new(3, 0, 3, 0)
-	marker.StudsOffset = Vector3.new(0, 2.6, 0)
+	marker.Size = UDim2.new(4, 0, 4, 0)
+	marker.StudsOffset = Vector3.new(0, 3.4, 0)
 	marker.AlwaysOnTop = true
 	marker.Enabled = false
 	marker.Parent = head
@@ -121,28 +134,29 @@ local function buildRaptorModel(home, index)
 	mark.Font = Enum.Font.GothamBlack
 	mark.Parent = marker
 
-	-- A small red diamond that floats over the head ALWAYS, so a raptor
-	-- is visible from the start even when it is only patrolling. The
-	-- big "!" above stays chase-only.
+	-- A BIG red "!" that floats over the head ALWAYS, so a raptor is
+	-- visible from the spawn point the moment the round starts. The
+	-- chase "!" above stays as the chase-only signal; this one hides
+	-- while chasing so the two never stack on top of each other.
 	local dot = Instance.new("BillboardGui")
 	dot.Name = "DotMarker"
 	dot.Adornee = head
-	dot.Size = UDim2.new(1.4, 0, 1.4, 0)
-	dot.StudsOffset = Vector3.new(0, 1.7, 0)
+	dot.Size = UDim2.new(3.5, 0, 3.5, 0)
+	dot.StudsOffset = Vector3.new(0, 3.4, 0)
 	dot.AlwaysOnTop = true
 	dot.Parent = head
 	local dotText = Instance.new("TextLabel")
 	dotText.Name = "Dot"
 	dotText.Size = UDim2.new(1, 0, 1, 0)
 	dotText.BackgroundTransparency = 1
-	dotText.Text = "◆"
+	dotText.Text = "!"
 	dotText.TextColor3 = Color3.fromRGB(255, 60, 50)
 	dotText.TextScaled = true
 	dotText.Font = Enum.Font.GothamBlack
 	dotText.Parent = dot
 
-	-- The whole raptor reads bigger: 1.3x, so it is impossible to miss.
-	model:ScaleTo(1.3)
+	-- The whole raptor reads BIG: 2x, so it is impossible to miss.
+	model:ScaleTo(2.0)
 	return model
 end
 
@@ -161,9 +175,11 @@ function Raptors.spawnAll(workspace)
 		model.Parent = workspace
 		local head = model:FindFirstChild("Head")
 		local marker = head and head:FindFirstChild("ChaseMarker") or nil
+		local dot = head and head:FindFirstChild("DotMarker") or nil
 		local raptor = {
 			model = model,
 			marker = marker,
+			dot = dot,
 			home = home,
 			state = "patrol",
 			target = nil,
@@ -173,7 +189,11 @@ function Raptors.spawnAll(workspace)
 			biteCooldown = 0,
 			walkPhase = math.random() * 6,
 		}
-		poseRaptor(raptor, home, math.rad(45 * i))
+		-- Raptors start FACING the camp, so the player sees a head, a
+		-- snout and glowing eyes from the spawn point — not a brown
+		-- box from the side. Patrol takes over the facing right away.
+		local dir = Config.CAMP_SPAWN - home
+		poseRaptor(raptor, home, math.atan2(-dir.X, -dir.Z))
 		table.insert(Raptors.list, raptor)
 	end
 end
@@ -292,6 +312,9 @@ function Raptors.update(dt, now, players, onCatch)
 		end
 		if raptor.marker then
 			raptor.marker.Enabled = (raptor.state == "chase")
+		end
+		if raptor.dot then
+			raptor.dot.Enabled = (raptor.state ~= "chase")
 		end
 	end
 end

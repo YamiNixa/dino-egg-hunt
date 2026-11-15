@@ -192,18 +192,27 @@ local function camp(parent)
 	return pad
 end
 
--- A nest: a ring of leaves and twigs that marks an egg spot from afar.
+-- A nest: a wide ring of leaves and twigs that marks an egg spot from
+-- afar. Big enough to cradle a 5-stud dino egg, not a chicken egg.
 function Map.buildNest(parent, pos)
 	local nest = Instance.new("Folder")
 	nest.Name = "Nest"
 	nest.Parent = parent
 	for i = 1, 6 do
 		local a = math.rad((i - 1) * 60)
-		part(nest, "NestLeaf", "Part", Vector3.new(2.4, 0.6, 1.0),
-			pos + Vector3.new(math.cos(a) * 2.4, 0.3, math.sin(a) * 2.4),
+		part(nest, "NestLeaf", "Part", Vector3.new(3.4, 0.7, 1.2),
+			pos + Vector3.new(math.cos(a) * 3.4, 0.3, math.sin(a) * 3.4),
 			Config.PALETTE.leaf, Enum.Material.Grass).Orientation = Vector3.new(0, (i - 1) * 60, 0)
 	end
-	part(nest, "NestBase", "Part", Vector3.new(4.2, 0.4, 4.2),
+	-- A twig ring outside the leaves, so the nest reads as built, not flat.
+	for i = 1, 8 do
+		local a = math.rad((i - 1) * 45)
+		local twig = part(nest, "NestTwig", "Part", Vector3.new(2.2, 0.35, 0.35),
+			pos + Vector3.new(math.cos(a) * 4.4, 0.25, math.sin(a) * 4.4),
+			Config.PALETTE.trunk, Enum.Material.Wood)
+		twig.Orientation = Vector3.new(0, (i - 1) * 45, 0)
+	end
+	part(nest, "NestBase", "Part", Vector3.new(6.0, 0.4, 6.0),
 		pos + Vector3.new(0, 0.2, 0), Config.PALETTE.eggSpot, Enum.Material.Sand).Shape =
 		Enum.PartType.Cylinder
 	return nest
@@ -239,6 +248,16 @@ function Map.build(workspace)
 	-- Trees: seventy of them, kept clear of the camp, the river and the nests.
 	local keepClear = { Config.CAMP_SPAWN }
 	for _, s in ipairs(Config.EGG_SPOTS) do table.insert(keepClear, s) end
+	-- The sightline from the camp spawn to raptor 1's home stays OPEN:
+	-- no tree may stand within 8 studs of that line, so the big brown
+	-- raptor is visible from the spawn point the moment the round starts.
+	local function segDist(px, pz, ax, az, bx, bz)
+		local dx, dz = bx - ax, bz - az
+		local len2 = dx * dx + dz * dz
+		local t = len2 > 0 and math.max(0, math.min(1, ((px - ax) * dx + (pz - az) * dz) / len2)) or 0
+		local qx, qz = ax + t * dx, az + t * dz
+		return math.sqrt((px - qx) ^ 2 + (pz - qz) ^ 2)
+	end
 	local placed = 0
 	local guard = 0
 	while placed < 70 and guard < 1000 do
@@ -249,6 +268,7 @@ function Map.build(workspace)
 		for _, c in ipairs(keepClear) do
 			if (Vector3.new(x, 0, z) - Vector3.new(c.X, 0, c.Z)).Magnitude < 9 then ok = false end
 		end
+		if segDist(x, z, -80, 80, -65, 65) < 8 then ok = false end
 		if ok then
 			tree(island, Vector3.new(x, 0, z), nil, rng)
 			placed += 1

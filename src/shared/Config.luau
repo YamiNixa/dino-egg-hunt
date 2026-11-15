@@ -39,7 +39,7 @@ Config.CAMP_SPAWN = Vector3.new(-80, 3, 80)
 -- The pack: three raptors, each with a home clearing to patrol from.
 Config.RAPTOR_COUNT = 3
 Config.RAPTOR_HOMES = {
-	Vector3.new(-55, 1, 55),
+	Vector3.new(-65, 1, 65),
 	Vector3.new(-35, 1, 30),
 	Vector3.new(0, 1, -55),
 }
@@ -83,8 +83,10 @@ Config.PALETTE = {
 	egg = Color3.fromRGB(240, 232, 210),
 	eggSpot = Color3.fromRGB(190, 150, 90),
 	amber = Color3.fromRGB(255, 176, 32),
-	raptor = Color3.fromRGB(126, 166, 74),
+	raptor = Color3.fromRGB(120, 70, 45),
 	raptorBelly = Color3.fromRGB(214, 202, 150),
+	raptorStripe = Color3.fromRGB(60, 35, 20),
+	raptorLeg = Color3.fromRGB(70, 40, 25),
 	campfire = Color3.fromRGB(255, 140, 40),
 	flower = Color3.fromRGB(255, 150, 190),
 	mountain = Color3.fromRGB(112, 98, 88),
