@@ -6,7 +6,7 @@
 -- letting the hunt start half-built: a server with no island is worse
 -- than a server that says so in its log.
 
-local Game = require(script.Parent:WaitForChild("Game"))
+local Game = require(script:WaitForChild("Game"))
 
 assert(game:GetService("ReplicatedStorage"):FindFirstChild("GameEvent") == nil,
 	"[Dino Egg Hunt] GameEvent already exists — two hunts cannot share a server.")
