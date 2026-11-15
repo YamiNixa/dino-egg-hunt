@@ -57,7 +57,7 @@ local function buildRaptorModel(home, index)
 	for _, side in ipairs({ -1, 1 }) do
 		local eye = Instance.new("Part")
 		eye.Name = "Eye"
-		eye.Size = Vector3.new(0.3, 0.3, 0.3)
+		eye.Size = Vector3.new(0.45, 0.45, 0.45)
 		eye.Position = Vector3.new(0.5 * side, 3.0, -3.3)
 		eye.Color = Color3.fromRGB(255, 40, 30)
 		eye.Material = Enum.Material.Neon
@@ -100,6 +100,29 @@ local function buildRaptorModel(home, index)
 		end
 	end
 	model.PrimaryPart = torso
+
+	-- A red "!" that floats over the head only while this raptor is
+	-- chasing a player, so the hunt is never a surprise.
+	local marker = Instance.new("BillboardGui")
+	marker.Name = "ChaseMarker"
+	marker.Adornee = head
+	marker.Size = UDim2.new(3, 0, 3, 0)
+	marker.StudsOffset = Vector3.new(0, 2.6, 0)
+	marker.AlwaysOnTop = true
+	marker.Enabled = false
+	marker.Parent = head
+	local mark = Instance.new("TextLabel")
+	mark.Name = "Mark"
+	mark.Size = UDim2.new(1, 0, 1, 0)
+	mark.BackgroundTransparency = 1
+	mark.Text = "!"
+	mark.TextColor3 = Color3.fromRGB(255, 60, 50)
+	mark.TextScaled = true
+	mark.Font = Enum.Font.GothamBlack
+	mark.Parent = marker
+
+	-- The whole raptor reads bigger: 1.3x, so it is impossible to miss.
+	model:ScaleTo(1.3)
 	return model
 end
 
@@ -116,8 +139,11 @@ function Raptors.spawnAll(workspace)
 		local home = Config.RAPTOR_HOMES[i]
 		local model = buildRaptorModel(home, i)
 		model.Parent = workspace
+		local head = model:FindFirstChild("Head")
+		local marker = head and head:FindFirstChild("ChaseMarker") or nil
 		local raptor = {
 			model = model,
+			marker = marker,
 			home = home,
 			state = "patrol",
 			target = nil,
@@ -243,6 +269,9 @@ function Raptors.update(dt, now, players, onCatch)
 				local bob = math.abs(math.sin(raptor.walkPhase)) * 0.25
 				raptor.model.PrimaryPart.Position += Vector3.new(0, bob, 0)
 			end
+		end
+		if raptor.marker then
+			raptor.marker.Enabled = (raptor.state == "chase")
 		end
 	end
 end

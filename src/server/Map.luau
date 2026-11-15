@@ -24,17 +24,22 @@ local function part(parent, name, className, size, pos, color, material, anchore
 	return p
 end
 
-local function tree(parent, pos, height, rng)
-	local trunkH = height or (7 + rng:NextNumber() * 5)
-	local trunk = part(parent, "Trunk", "Part", Vector3.new(1.4, trunkH, 1.4),
+local function tree(parent, pos, height, rng, giant)
+	-- Trees are big now: trunks 12-20 studs, crowns 12-16 across, so
+	-- the jungle reads as a jungle, not a lawn with twigs. A giant
+	-- tree gets a 4-stud trunk and a 20-stud crown.
+	local trunkH = height or (12 + rng:NextNumber() * 8)
+	local trunkW = giant and 4 or 2.4
+	local crownS = giant and 20 or (11 + rng:NextNumber() * 5)
+	local trunk = part(parent, "Trunk", "Part", Vector3.new(trunkW, trunkH, trunkW),
 		pos + Vector3.new(0, trunkH / 2, 0), Config.PALETTE.trunk, Enum.Material.Wood)
 	trunk.TopSurface = Enum.SurfaceType.Smooth
-	local crownY = trunkH + 2
-	local crown = part(parent, "Crown", "Part", Vector3.new(7, 5, 7),
+	local crownY = trunkH + crownS * 0.35
+	local crown = part(parent, "Crown", "Part", Vector3.new(crownS, crownS * 0.65, crownS),
 		pos + Vector3.new(0, crownY, 0), Config.PALETTE.leaf, Enum.Material.Grass)
 	crown.Shape = Enum.PartType.Ball
-	local crown2 = part(parent, "CrownTop", "Part", Vector3.new(4.5, 3.5, 4.5),
-		pos + Vector3.new(1, crownY + 2.5, -0.5), Config.PALETTE.leafLight, Enum.Material.Grass)
+	local crown2 = part(parent, "CrownTop", "Part", Vector3.new(crownS * 0.6, crownS * 0.45, crownS * 0.6),
+		pos + Vector3.new(1, crownY + crownS * 0.3, -0.5), Config.PALETTE.leafLight, Enum.Material.Grass)
 	crown2.Shape = Enum.PartType.Ball
 	return trunk
 end
@@ -111,11 +116,11 @@ function Map.buildNest(parent, pos)
 	nest.Parent = parent
 	for i = 1, 6 do
 		local a = math.rad((i - 1) * 60)
-		part(nest, "NestLeaf", "Part", Vector3.new(1.6, 0.5, 0.7),
-			pos + Vector3.new(math.cos(a) * 1.6, 0.3, math.sin(a) * 1.6),
+		part(nest, "NestLeaf", "Part", Vector3.new(2.4, 0.6, 1.0),
+			pos + Vector3.new(math.cos(a) * 2.4, 0.3, math.sin(a) * 2.4),
 			Config.PALETTE.leaf, Enum.Material.Grass).Orientation = Vector3.new(0, (i - 1) * 60, 0)
 	end
-	part(nest, "NestBase", "Part", Vector3.new(3, 0.4, 3),
+	part(nest, "NestBase", "Part", Vector3.new(4.2, 0.4, 4.2),
 		pos + Vector3.new(0, 0.2, 0), Config.PALETTE.eggSpot, Enum.Material.Sand).Shape =
 		Enum.PartType.Cylinder
 	return nest
@@ -148,12 +153,12 @@ function Map.build(workspace)
 		Vector3.new(0, 2, -85), Config.PALETTE.grass, Enum.Material.Grass)
 	hill.Shape = Enum.PartType.Ball
 
-	-- Trees: forty of them, kept clear of the camp, the river and the nests.
+	-- Trees: seventy of them, kept clear of the camp, the river and the nests.
 	local keepClear = { Config.CAMP_SPAWN }
 	for _, s in ipairs(Config.EGG_SPOTS) do table.insert(keepClear, s) end
 	local placed = 0
 	local guard = 0
-	while placed < 40 and guard < 600 do
+	while placed < 70 and guard < 1000 do
 		guard += 1
 		local x = rng:NextNumber(-100, 100)
 		local z = rng:NextNumber(-100, 100)
@@ -167,12 +172,71 @@ function Map.build(workspace)
 		end
 	end
 
+	-- Four hero trees, giants at the island's corners, so the skyline
+	-- has landmarks instead of one flat canopy line.
+	tree(island, Vector3.new(-90, 0, -80), 26 + rng:NextNumber() * 4, rng, true)
+	tree(island, Vector3.new(80, 0, 78), 28 + rng:NextNumber() * 4, rng, true)
+	tree(island, Vector3.new(-10, 0, 88), 26 + rng:NextNumber() * 4, rng, true)
+	tree(island, Vector3.new(8, 0, -95), 30 + rng:NextNumber() * 4, rng, true)
+
 	-- Ferns and rocks: the undergrowth that makes it a jungle, not a lawn.
-	for _ = 1, 34 do
+	for _ = 1, 60 do
 		fern(island, Vector3.new(rng:NextNumber(-100, 100), 0, rng:NextNumber(-100, 100)), rng)
 	end
-	for _ = 1, 16 do
+	for _ = 1, 28 do
 		rock(island, Vector3.new(rng:NextNumber(-100, 100), 0, rng:NextNumber(-100, 100)), rng)
+	end
+
+	-- Grass tufts and wildflowers, so the ground is a jungle floor,
+	-- not one flat slab of green.
+	local tuftColors = { Config.PALETTE.leafLight, Config.PALETTE.amber, Config.PALETTE.flower }
+	for _ = 1, 70 do
+		local s = 0.8 + rng:NextNumber() * 0.8
+		local tuft = part(island, "Tuft", "Part", Vector3.new(s, s * 1.2, s),
+			Vector3.new(rng:NextNumber(-105, 105), s * 0.5, rng:NextNumber(-105, 105)),
+			tuftColors[1 + math.floor(rng:NextNumber() * 3)], Enum.Material.Grass)
+		tuft.Shape = Enum.PartType.Ball
+		tuft.CanCollide = false
+	end
+
+	-- The horizon is not empty anymore: mesas ring the island far out,
+	-- so the world feels like a valley, not a void.
+	for i = 1, 8 do
+		local a = math.rad((i - 1) * 45 + 20)
+		local r = 180 + rng:NextNumber() * 35
+		local w = 40 + rng:NextNumber() * 20
+		local h = 40 + rng:NextNumber() * 40
+		local mesa = part(island, "Mesa", "Part", Vector3.new(w, h, w * 0.7),
+			Vector3.new(math.cos(a) * r, h / 2 - 4, math.sin(a) * r),
+			Config.PALETTE.mountain, Enum.Material.Slate)
+		mesa.CanCollide = false
+		local cap = part(island, "MesaCap", "Part", Vector3.new(w * 0.7, h * 0.25, w * 0.5),
+			Vector3.new(math.cos(a) * r, h - 4 + h * 0.1, math.sin(a) * r),
+			Config.PALETTE.leaf, Enum.Material.Grass)
+		cap.CanCollide = false
+	end
+
+	-- Clouds drift high over the island so the sky is not a flat dome.
+	for _ = 1, 6 do
+		local a = math.rad(rng:NextNumber(0, 360))
+		local r = rng:NextNumber(40, 150)
+		local cy = 65 + rng:NextNumber() * 25
+		local cx, cz = math.cos(a) * r, math.sin(a) * r
+		for _, off in ipairs({ Vector3.new(0, 0, 0), Vector3.new(-9, -1.5, 2), Vector3.new(9, -1, -2) }) do
+			local puff = part(island, "Cloud", "Part", Vector3.new(16, 6, 12),
+				Vector3.new(cx, cy, cz) + off, Config.PALETTE.cloud, Enum.Material.SmoothPlastic)
+			puff.Shape = Enum.PartType.Ball
+			puff.CanCollide = false
+		end
+	end
+
+	-- Low hills just past the beach, outside the play area, so the
+	-- island sits in rolling land instead of on a flat slab.
+	for _, hp in ipairs({ Vector3.new(-142, 0, -40), Vector3.new(142, 0, 60), Vector3.new(20, 0, 148) }) do
+		local outer = part(island, "OuterHill", "Part", Vector3.new(60, 14, 50),
+			Vector3.new(hp.X, 1, hp.Z), Config.PALETTE.grass, Enum.Material.Grass)
+		outer.Shape = Enum.PartType.Ball
+		outer.CanCollide = false
 	end
 
 	-- Four ruins, one per quarter of the island, each guarding an egg.

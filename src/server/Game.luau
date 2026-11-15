@@ -158,8 +158,8 @@ local function spawnEggs(parent)
 		Map.buildNest(parent, spot)
 		local egg = Instance.new("Part")
 		egg.Name = "Egg" .. i
-		egg.Size = Vector3.new(1.6, 2.0, 1.6)
-		egg.Position = spot + Vector3.new(0, 1.4, 0)
+		egg.Size = Vector3.new(2.2, 2.8, 2.2)
+		egg.Position = spot + Vector3.new(0, 1.7, 0)
 		egg.Color = Config.PALETTE.egg
 		egg.Material = Enum.Material.SmoothPlastic
 		egg.Shape = Enum.PartType.Ball
@@ -169,10 +169,22 @@ local function spawnEggs(parent)
 		egg.Parent = parent
 		local glow = Instance.new("PointLight")
 		glow.Color = Color3.fromRGB(255, 240, 180)
-		glow.Range = 6
-		glow.Brightness = 0.7
+		glow.Range = 14
+		glow.Brightness = 1.6
 		glow.Parent = egg
 		eggs[i] = egg
+		-- A pillar of light over every nest, so each egg is findable
+		-- from across the island.
+		local beacon = Instance.new("Part")
+		beacon.Name = "EggBeacon" .. i
+		beacon.Size = Vector3.new(1.4, 30, 1.4)
+		beacon.Position = spot + Vector3.new(0, 15, 0)
+		beacon.Color = Color3.fromRGB(255, 210, 90)
+		beacon.Material = Enum.Material.Neon
+		beacon.Transparency = 0.7
+		beacon.Anchored = true
+		beacon.CanCollide = false
+		beacon.Parent = parent
 	end
 end
 
